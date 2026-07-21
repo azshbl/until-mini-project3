@@ -170,3 +170,141 @@ print(pca.explained_variance_ratio_.sum())
 K-Means: When you expect roughly round, evenly-sized clusters, you have a rough idea of (or can estimate) the number of segments, and you're working with a large dataset where speed matters.
 
 Strengths Fast, scalable, simple, easy to interpret centroids/Kmen Weaknesses Needs K chosen upfront, assumes spherical clusters, sensitive to outliers and initialization/Kmen
+Dendrogram
+Build the dendrogram first to decide how many clusters to use.
+
+
+Z = linkage(X_scaled, method='ward')
+
+plt.figure(figsize=(12,6))
+dendrogram(Z)
+plt.title("Dendrogram")
+plt.xlabel("Customers")
+plt.ylabel("Distance")
+plt.show()
+
+     
+
+
+#same dendrogram but with a line showing where we cut for 5 clusters
+plt.figure(figsize=(12,6))
+dendrogram(Z, color_threshold=9.73)
+plt.axhline(y=9.73, color='red', linestyle='--', label='cut -> 5 clusters')
+plt.title("Dendrogram - cut for 5 clusters")
+plt.xlabel("Customers")
+plt.ylabel("Distance")
+plt.legend()
+plt.show()
+     
+
+Looking at the dendrogram, cutting around 5 clusters looks like a good spot (big vertical gap before that merge). Next we check with silhouette score to confirm.
+
+
+#check silhouette score for  different k values
+scores = []
+
+for k in range(2,9):
+    model = AgglomerativeClustering(n_clusters=k, linkage='ward')
+    labels = model.fit_predict(X_scaled)
+    score = silhouette_score(X_scaled, labels)
+    scores.append(score)
+    print("k =", k, "-> silhouette score:", round(score,3))
+
+     
+k = 2 -> silhouette score: 0.318
+k = 3 -> silhouette score: 0.321
+k = 4 -> silhouette score: 0.361
+k = 5 -> silhouette score: 0.39
+k = 6 -> silhouette score: 0.42
+k = 7 -> silhouette score: 0.398
+k = 8 -> silhouette score: 0.366
+
+plt.plot(range(2,9), scores, marker="o")
+plt.xlabel("Number of Clusters")
+plt.ylabel("Silhouette Score")
+plt.title("Silhouette Score vs k")
+plt.show()
+
+     
+
+k=5 matches the dendrogram gap and has a good silhouette score, so going with n_clusters=5.
+
+
+hc = AgglomerativeClustering(n_clusters=5, linkage='ward')
+clusters_hc = hc.fit_predict(X_scaled)
+
+df['Cluster'] = clusters_hc
+
+     
+
+plt.scatter(X_scaled[:,1], X_scaled[:,2], c=clusters_hc, cmap="rainbow")
+plt.xlabel("Annual Income (scaled)")
+plt.ylabel("Spending Score (scaled)")
+plt.title("Hierarchical Clustering")
+plt.show()
+
+     
+
+
+#PCA view using all 3 features
+pca = PCA(n_components=2)
+X_pca = pca.fit_transform(X_scaled)
+
+plt.scatter(X_pca[:,0], X_pca[:,1], c=clusters_hc, cmap="rainbow")
+plt.xlabel("PC1")
+plt.ylabel("PC2")
+plt.title("Hierarchical Clustering - PCA view")
+plt.show()
+print()
+print(pca.explained_variance_ratio_.sum()) #display saved data.  0.22 is lost
+     
+
+0.7757454566976747
+
+#Evaluate with Silhouette Score
+score = silhouette_score(X_scaled, clusters_hc)
+print("Silhouette Score:", score)
+
+     
+Silhouette Score: 0.39002826186267214
+
+#average feature values per cluster, to describe the groups
+df.groupby('Cluster')[features].mean().round(1)
+
+     
+Age	Annual Income (k$)	Spending Score (1-100)
+Cluster			
+0	26.6	47.4	56.8
+1	56.4	55.3	48.4
+2	32.7	86.5	82.1
+3	43.9	91.3	16.7
+4	44.3	25.8	20.3
+Cluster summary (Approximately):
+
+high income, high spending -> best customers
+high income, low spending -> not spending much, could use offers
+low income, high spending -> spends a lot for their income
+low income, low spending -> careful spenders
+average income, average spending -> the "middle" group
+Evaluation & Comparison
+Compare based on:
+Cluster shape
+Number of clusters
+Sensitivity to noise
+Performance (e.g., Silhouette Score if applicable)
+Algorithm	Cluster Shape	No. of Clusters	Sensitive to Noise	Performance (Silhouette Score)
+K-Means	Round	5	No	0.41
+Hierarchical Clustering (HC)	Round	5	No	0.39
+DBSCAN	Scattered / Non-Spherical	2	Yes	0.388
+Critical Thinking (Important!) You must answer:
+
+Which algorithm performed best? Why?
+K-Means, it has the highest Silhouette Score
+When would you use each algorithm?
+When we want to understnd the relationship between data pooinrs (Customer Habits Segmentation)
+For small datasets
+whe we dont want to specify K upfront
+What are the strengths and weaknesses of each?
+Strength: Dendrogram
+Strength: Flexiable Linkage Types
+Weakness: Not for large datasets
